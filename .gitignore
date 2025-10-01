@@ -214,3 +214,46 @@ cython_debug/
 outputs
 
 evaluation/data/temporal_locomo
+
+# === Development Environment Additions ===
+
+# Environment Variables - CRITICAL
+.env
+.env.*
+!.env.example
+docker-dev/.env
+docker-dev/.env.*
+!docker-dev/.env.example
+
+# SSH Keys and Secrets
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*api_key*
+*secret*
+*token*
+credentials.json
+
+# Docker development volumes
+docker-dev/data/
+docker-dev/logs/
+*.dump
+*.sql
+
+# Python Virtual Environments
+venv*/
+ENV*/
+env*/
+.venv
+
+# IDE
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+*.code-workspace
+
+# Local development
+local_notes.md
+scratch/
+tmp/
