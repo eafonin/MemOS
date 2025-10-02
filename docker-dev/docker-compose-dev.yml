@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  neo4j:
+    image: neo4j:5.14.0
+    container_name: memos-neo4j
+    ports:
+      - "0.0.0.0:7474:7474"  # Web interface
+      - "0.0.0.0:7687:7687"  # Bolt protocol
+    environment:
+      - NEO4J_AUTH=neo4j/memospassword123
+      - NEO4J_dbms_memory_pagecache_size=1G
+      - NEO4J_dbms_memory_heap_initial__size=1G
+      - NEO4J_dbms_memory_heap_max__size=2G
+    volumes:
+      - ./data/neo4j:/data
+      - ./logs/neo4j:/logs
+    networks:
+      - memos-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "neo4j", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: memos-qdrant
+    ports:
+      - "0.0.0.0:6333:6333"  # REST API
+      - "0.0.0.0:6334:6334"  # gRPC
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+    networks:
+      - memos-network
+    restart: unless-stopped
+
+  memos-api:
+    build:
+      context: ..
+      dockerfile: docker-dev/Dockerfile
+    container_name: memos-api-dev
+    ports:
+      - "0.0.0.0:8000:8000"  # API
+      - "0.0.0.0:5678:5678"  # Debugpy
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DEBUGPY_ENABLE=true
+    volumes:
+      # Mount source code for live reload - using actual MemOS structure
+      - ../src:/app/src:rw
+      - ./debug_scripts:/app/debug_scripts:ro
+      - ./data/memos:/app/data:rw
+      - ./logs/memos:/app/logs:rw
+      # Mount examples and test data if needed
+      - ../examples:/app/examples:ro
+      - ../tests:/app/tests:ro
+    depends_on:
+      - neo4j
+      - qdrant
+    networks:
+      - memos-network
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+networks:
+  memos-network:
+    driver: bridge
