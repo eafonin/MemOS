@@ -5,10 +5,11 @@ Improved MemOS Test Script with Better Error Handling
 
 import requests
 import json
+import re
 import time
 import sys
 from pathlib import Path
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional, Dict, Any, List
 
 API_BASE = "http://localhost:8000"
 
@@ -250,6 +251,71 @@ class MemOSClient:
         
         return ""
 
+def is_valid_text_content(content: str) -> bool:
+    """
+    Check if content is meaningful text (not embeddings/vectors).
+
+    Returns False if content looks like numeric vector data.
+    """
+    if not content or len(content.strip()) < 20:
+        return False
+
+    # Count numeric tokens vs total tokens
+    tokens = content.split()
+    if len(tokens) == 0:
+        return False
+
+    numeric_tokens = len(re.findall(r'^-?\d+\.?\d*$', ' '.join(tokens)))
+    numeric_ratio = numeric_tokens / len(tokens)
+
+    # If more than 80% numeric, it's probably vector data
+    if numeric_ratio > 0.8:
+        return False
+
+    # Check for comma-separated float pattern (embeddings)
+    if re.search(r'^[\d\.,\s-]+$', content.strip()):
+        comma_count = content.count(',')
+        if comma_count > 50:  # Embeddings typically have 100+ values
+            return False
+
+    return True
+
+def smart_chunk(content: str, max_size: int = 1000) -> List[str]:
+    """
+    Split content intelligently on sentence boundaries.
+
+    Better than fixed-size chunking because it:
+    - Preserves sentence integrity
+    - Avoids breaking mid-sentence
+    - Provides better context for LLM processing
+    """
+    # First filter out obvious vector data
+    if not is_valid_text_content(content):
+        return []
+
+    # Split on sentence boundaries
+    sentences = re.split(r'(?<=[.!?])\s+', content)
+    chunks = []
+    current_chunk = ""
+
+    for sentence in sentences:
+        # Skip if sentence itself looks like vector data
+        if not is_valid_text_content(sentence):
+            continue
+
+        if len(current_chunk) + len(sentence) + 1 < max_size:
+            current_chunk += sentence + " "
+        else:
+            if current_chunk.strip():
+                chunks.append(current_chunk.strip())
+            current_chunk = sentence + " "
+
+    # Add final chunk
+    if current_chunk.strip():
+        chunks.append(current_chunk.strip())
+
+    return chunks
+
 def load_sample_data(client: MemOSClient, data_dir: str = "./sample_docs"):
     """Load sample documents"""
     print("\n📂 Loading sample data...")
@@ -266,13 +332,20 @@ def load_sample_data(client: MemOSClient, data_dir: str = "./sample_docs"):
         print(f"\n   📄 Loading {txt_file.name}")
         try:
             content = txt_file.read_text(encoding='utf-8')
-            # Split large content into smaller chunks to avoid issues
-            chunks = [content[i:i+500] for i in range(0, len(content), 500)]
-            
+
+            # Use smart chunking with validation
+            chunks = smart_chunk(content, max_size=1000)
+
+            if not chunks:
+                print(f"      ⚠️ No valid text content found (possibly vector data)")
+                continue
+
+            print(f"      ℹ️ Split into {len(chunks)} chunks")
+
             for i, chunk in enumerate(chunks):
                 if client.add_memory_from_text(chunk, f"{txt_file.name}_chunk{i}"):
                     success_count += 1
-                    
+
         except Exception as e:
             print(f"      ❌ Error: {e}")
     
@@ -282,16 +355,26 @@ def load_sample_data(client: MemOSClient, data_dir: str = "./sample_docs"):
         try:
             with open(json_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
+
             # Extract text content from JSON
             if isinstance(data, dict) and 'content' in data:
                 content = data['content']
             else:
                 content = json.dumps(data)
-            
-            if client.add_memory_from_text(content, json_file.name):
-                success_count += 1
-                
+
+            # Validate and chunk JSON content
+            chunks = smart_chunk(content, max_size=1000)
+
+            if not chunks:
+                print(f"      ⚠️ No valid text content found")
+                continue
+
+            print(f"      ℹ️ Split into {len(chunks)} chunks")
+
+            for i, chunk in enumerate(chunks):
+                if client.add_memory_from_text(chunk, f"{json_file.name}_chunk{i}"):
+                    success_count += 1
+
         except Exception as e:
             print(f"      ❌ Error: {e}")
     

@@ -21,22 +21,28 @@ logger = get_logger(__name__)
 
 def flatten_metadata(metadata: dict) -> dict:
     """
-    Flatten nested metadata for Neo4j compatibility.
-    Neo4j cannot store nested dicts/lists as node properties.
+    Selectively flatten metadata for Neo4j compatibility.
+    Neo4j cannot store nested dicts/lists as node properties, but we must
+    preserve embedding vectors as lists for VecDB (Qdrant) compatibility.
 
-    Converts:
-    - lists to comma-separated strings
-    - nested dicts to JSON strings
-    - keeps primitives (str, int, float, bool) as-is
+    Rules:
+    - Preserve 'embedding' field as list[float] (required by VecDB)
+    - Convert other lists to comma-separated strings (Neo4j compatible)
+    - Convert nested dicts to JSON strings
+    - Keep primitives (str, int, float, bool) as-is
     """
+    import json
+
     flattened = {}
     for key, value in metadata.items():
-        if isinstance(value, (list, tuple)):
-            # Convert lists to comma-separated strings
+        # CRITICAL: Preserve embedding vectors as lists for VecDB
+        if key == "embedding" and isinstance(value, (list, tuple)):
+            flattened[key] = value  # Keep as list[float]
+        elif isinstance(value, (list, tuple)):
+            # Convert other lists to comma-separated strings for Neo4j
             flattened[key] = ", ".join(str(v) for v in value)
         elif isinstance(value, dict):
             # Convert nested dicts to JSON strings
-            import json
             flattened[key] = json.dumps(value)
         elif value is None:
             # Skip None values
