@@ -25,7 +25,13 @@ services:
       retries: 3
 
   qdrant:
-    image: qdrant/qdrant:v1.7.4
+    # image: qdrant/qdrant:v1.7.4
+
+    # Qdrant client version 1.14.3 is incompatible with server version 1.7.4. Major versions 
+    # should match and minor version difference must not exceed 1. Set check_compatibility=False 
+    # to skip version check.
+    image: qdrant/qdrant:v1.14.3
+    
     container_name: memos-qdrant
     ports:
       - "0.0.0.0:6333:6333"  # REST API
@@ -35,6 +41,31 @@ services:
     networks:
       - memos-network
     restart: unless-stopped
+
+  # Text Embeddings Inference (CPU)
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8.1
+    container_name: memos-tei
+    # Expose to host if you want to cURL from the host. If only internal use is needed, you can remove this.
+    ports:
+      - "0.0.0.0:8080:80"
+    # Choose your model here; `all-mpnet-base-v2` is a solid general choice (768 dims).
+    command: ["--model-id", "sentence-transformers/all-mpnet-base-v2"]
+    environment:
+      # Optional, speeds up downloads a bit
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+      # If you need private/gated models, uncomment and put your token:
+      # - HF_TOKEN=hf_xxx
+    volumes:
+      # Persist model + tokenizer downloads
+      - ./data/hf-cache:/data
+    networks: [memos-network]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
 
   memos-api:
     build:
@@ -61,6 +92,7 @@ services:
     depends_on:
       - neo4j
       - qdrant
+      - tei
     networks:
       - memos-network
     restart: unless-stopped
