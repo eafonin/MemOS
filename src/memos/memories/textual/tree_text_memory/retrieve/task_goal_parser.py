@@ -1,3 +1,4 @@
+import json
 import traceback
 
 from string import Template
@@ -87,7 +88,7 @@ class TaskGoalParser:
         """
         try:
             response = response.replace("```", "").replace("json", "").strip()
-            response_json = eval(response)
+            response_json = json.loads(response)
             return ParsedTaskGoal(
                 memories=response_json.get("memories", []),
                 keys=response_json.get("keys", []),

@@ -19,6 +19,34 @@ from memos.memories.textual.tree_text_memory.organize.reorganizer import (
 logger = get_logger(__name__)
 
 
+def flatten_metadata(metadata: dict) -> dict:
+    """
+    Flatten nested metadata for Neo4j compatibility.
+    Neo4j cannot store nested dicts/lists as node properties.
+
+    Converts:
+    - lists to comma-separated strings
+    - nested dicts to JSON strings
+    - keeps primitives (str, int, float, bool) as-is
+    """
+    flattened = {}
+    for key, value in metadata.items():
+        if isinstance(value, (list, tuple)):
+            # Convert lists to comma-separated strings
+            flattened[key] = ", ".join(str(v) for v in value)
+        elif isinstance(value, dict):
+            # Convert nested dicts to JSON strings
+            import json
+            flattened[key] = json.dumps(value)
+        elif value is None:
+            # Skip None values
+            continue
+        else:
+            # Keep primitives as-is
+            flattened[key] = value
+    return flattened
+
+
 class MemoryManager:
     def __init__(
         self,
@@ -133,9 +161,15 @@ class MemoryManager:
         """
         ids = []
 
+        logger.debug(
+            f"[_process_memory] START: memory_type={memory.metadata.memory_type}, "
+            f"content_preview={memory.memory[:50]}..."
+        )
+
         # Add to WorkingMemory
         working_id = self._add_memory_to_db(memory, "WorkingMemory")
         ids.append(working_id)
+        logger.debug(f"[_process_memory] Added to WorkingMemory: {working_id}")
 
         # Add to LongTermMemory and UserMemory
         if memory.metadata.memory_type in ["LongTermMemory", "UserMemory"]:
@@ -144,7 +178,9 @@ class MemoryManager:
                 memory_type=memory.metadata.memory_type,
             )
             ids.append(added_id)
+            logger.debug(f"[_process_memory] Added to {memory.metadata.memory_type}: {added_id}")
 
+        logger.debug(f"[_process_memory] COMPLETE: returned {len(ids)} IDs")
         return ids
 
     def _add_memory_to_db(self, memory: TextualMemoryItem, memory_type: str) -> str:
@@ -157,8 +193,11 @@ class MemoryManager:
         metadata["updated_at"] = datetime.now().isoformat()
         working_memory = TextualMemoryItem(memory=memory.memory, metadata=metadata)
 
+        # Flatten metadata for Neo4j compatibility
+        flattened_metadata = flatten_metadata(metadata)
+
         # Insert node into graph
-        self.graph_store.add_node(working_memory.id, working_memory.memory, metadata)
+        self.graph_store.add_node(working_memory.id, working_memory.memory, flattened_metadata)
         return working_memory.id
 
     def _add_to_graph_memory(self, memory: TextualMemoryItem, memory_type: str):
@@ -173,10 +212,10 @@ class MemoryManager:
         - enable_summary_link: whether to auto-link to a summary node
         """
         node_id = str(uuid.uuid4())
+        # Flatten metadata for Neo4j compatibility
+        flattened_metadata = flatten_metadata(memory.metadata.model_dump(exclude_none=True))
         # Step 2: Add new node to graph
-        self.graph_store.add_node(
-            node_id, memory.memory, memory.metadata.model_dump(exclude_none=True)
-        )
+        self.graph_store.add_node(node_id, memory.memory, flattened_metadata)
         self.reorganizer.add_message(
             QueueMessage(
                 op="add",
@@ -248,10 +287,12 @@ class MemoryManager:
                     background="",
                 ),
             )
+            # Flatten metadata for Neo4j compatibility
+            flattened_metadata = flatten_metadata(new_node.metadata.model_dump(exclude_none=True))
             self.graph_store.add_node(
                 id=new_node.id,
                 memory=new_node.memory,
-                metadata=new_node.metadata.model_dump(exclude_none=True),
+                metadata=flattened_metadata,
             )
             self.reorganizer.add_message(
                 QueueMessage(
