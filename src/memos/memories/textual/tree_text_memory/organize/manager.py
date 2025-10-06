@@ -22,31 +22,54 @@ logger = get_logger(__name__)
 def flatten_metadata(metadata: dict) -> dict:
     """
     Selectively flatten metadata for Neo4j compatibility.
-    Neo4j cannot store nested dicts/lists as node properties, but we must
-    preserve embedding vectors as lists for VecDB (Qdrant) compatibility.
 
-    Rules:
-    - Preserve 'embedding' field as list[float] (required by VecDB)
-    - Convert other lists to comma-separated strings (Neo4j compatible)
-    - Convert nested dicts to JSON strings
-    - Keep primitives (str, int, float, bool) as-is
+    Neo4j CANNOT store:
+    - Nested dicts (Maps) as properties
+    - Lists of dicts/objects
+    - Complex Pydantic models
+
+    Neo4j CAN store:
+    - Primitives (str, int, float, bool)
+    - Lists of primitives
+    - Strings (including JSON-serialized data)
+
+    CRITICAL Fields and their handling:
+    - 'embedding': list[float] - Keep as list (primitives OK for Neo4j and VecDB)
+    - 'sources': list[SourceMessage] - JSON serialize (complex objects, Pydantic validator)
+    - 'usage': list[str] - Keep as list (primitives OK for Neo4j)
+    - 'tags': list[str] - Flatten to comma-separated string (simpler retrieval)
+
+    Strategy:
+    - Preserve embedding as list[float] for VecDB
+    - JSON serialize sources for Neo4j, deserialize on read for Pydantic
+    - Keep usage as list[str] for Neo4j
     """
     import json
 
+    # Simple lists that Neo4j can handle (primitives only)
+    PRESERVE_AS_LIST = {"embedding", "usage"}
+    # Complex lists that need JSON serialization (contains dicts/objects)
+    JSON_SERIALIZE = {"sources"}
+
     flattened = {}
     for key, value in metadata.items():
-        # CRITICAL: Preserve embedding vectors as lists for VecDB
-        if key == "embedding" and isinstance(value, (list, tuple)):
-            flattened[key] = value  # Keep as list[float]
+        if value is None:
+            # Skip None values
+            continue
+        elif key in PRESERVE_AS_LIST and isinstance(value, (list, tuple)):
+            # Keep as list of primitives for Neo4j
+            flattened[key] = value
+        elif key in JSON_SERIALIZE and isinstance(value, (list, tuple)):
+            # JSON serialize complex lists (Pydantic models, dicts)
+            flattened[key] = json.dumps(
+                [item.model_dump() if hasattr(item, "model_dump") else item for item in value]
+            )
         elif isinstance(value, (list, tuple)):
-            # Convert other lists to comma-separated strings for Neo4j
+            # Convert other lists to comma-separated strings
             flattened[key] = ", ".join(str(v) for v in value)
         elif isinstance(value, dict):
             # Convert nested dicts to JSON strings
             flattened[key] = json.dumps(value)
-        elif value is None:
-            # Skip None values
-            continue
         else:
             # Keep primitives as-is
             flattened[key] = value

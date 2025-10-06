@@ -123,6 +123,14 @@ class TreeNodeTextualMemoryMetadata(TextualMemoryMetadata):
     def coerce_sources(cls, v):
         if v is None:
             return v
+
+        # Handle JSON-serialized sources from Neo4j storage (flatten_metadata)
+        if isinstance(v, str):
+            try:
+                v = json.loads(v)
+            except json.JSONDecodeError:
+                raise TypeError("sources must be a list or valid JSON string")
+
         if not isinstance(v, list):
             raise TypeError("sources must be a list")
         out = []
