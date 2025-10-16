@@ -1,6 +1,9 @@
 # MemOS home
 .memos/
 
+# Docker development environment
+docker-dev/
+
 # Temporary files
 tmp/
 **/tmp_data/
