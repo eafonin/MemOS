@@ -139,6 +139,49 @@ print(f"text_memories: {retrieved_memories['text_mem']}")
 
 For more detailed examples, please check out the [`examples`](./examples) directory.
 
+## 🤖 For AI Agents & Developers
+
+MemOS includes a comprehensive documentation indexing system designed for efficient navigation by LLM agents and developers. The documentation is organized using a 2-level JSON Lines index for fast lookup.
+
+### 📖 Documentation Quick Access
+
+**Start here:** [`DOCS.md`](./DOCS.md) - Agent-optimized quick reference with:
+- Common agent tasks and file paths
+- Quick search patterns for APIs, tutorials, and configuration
+- Documentation hierarchy and priority system
+- Topic-based indexes for fast discovery
+
+### 📑 Detailed Guides
+
+- **Index Navigation**: [`.claude/docs-guide.md`](./.claude/docs-guide.md) - How to traverse the 2-level JSON Lines index system
+- **Project Context**: [`.claude/context.md`](./.claude/context.md) - Project overview and structure
+- **Agent Workflows**: [`memos-data-loader/docs/agent-workflows/`](./memos-data-loader/docs/agent-workflows/) - Systematic workflows for common tasks
+
+### 🗂️ Topic Indexes (Fast Discovery)
+
+- **API Documentation**: [`docs/processed/.topics/API.md`](./docs/processed/.topics/API.md)
+- **Getting Started**: [`docs/processed/.topics/GETTING-STARTED.md`](./docs/processed/.topics/GETTING-STARTED.md)
+- **Configuration**: [`docs/processed/.topics/CONFIGURATION.md`](./docs/processed/.topics/CONFIGURATION.md)
+- **Architecture**: [`docs/processed/.topics/ARCHITECTURE.md`](./docs/processed/.topics/ARCHITECTURE.md)
+
+### 📊 Index Structure
+
+```
+docs/processed/
+├── docs-index.md                    # Parent index (all collections)
+├── .topics/                         # Quick topic-based indexes
+│   ├── API.md
+│   ├── GETTING-STARTED.md
+│   ├── CONFIGURATION.md
+│   └── ARCHITECTURE.md
+├── .keywords                        # Keyword → file mapping
+└── memos-docs.openmem.net/         # Priority 1: Official docs
+    ├── memos-docs.openmem.net-index.md
+    └── [56 markdown files]
+```
+
+The indexed documentation includes official MemOS docs (56 files), GitHub documentation (58 files), ArXiv research papers (18 files), and community content, all organized by priority and topic for efficient agent retrieval.
+
 ## 📦 Installation
 
 ### Install via pip

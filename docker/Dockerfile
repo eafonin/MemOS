@@ -14,9 +14,6 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Set Hugging Face mirror
-ENV HF_ENDPOINT=https://hf-mirror.com
-
 # Install Python packages
 COPY docker/requirements.txt .
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt

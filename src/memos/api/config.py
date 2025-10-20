@@ -171,7 +171,7 @@ class APIConfig:
                         "chunker": {
                             "backend": "sentence",
                             "config": {
-                                "tokenizer_or_token_counter": "gpt2",
+                                "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
                                 "chunk_size": 512,
                                 "chunk_overlap": 128,
                                 "min_sentences_per_chunk": 1,
@@ -359,7 +359,7 @@ class APIConfig:
                     "chunker": {
                         "backend": "sentence",
                         "config": {
-                            "tokenizer_or_token_counter": "gpt2",
+                            "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
                             "chunk_size": 512,
                             "chunk_overlap": 128,
                             "min_sentences_per_chunk": 1,
@@ -455,7 +455,7 @@ class APIConfig:
                     "chunker": {
                         "backend": "sentence",
                         "config": {
-                            "tokenizer_or_token_counter": "gpt2",
+                            "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
                             "chunk_size": 512,
                             "chunk_overlap": 128,
                             "min_sentences_per_chunk": 1,

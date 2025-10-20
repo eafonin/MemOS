@@ -1,0 +1,127 @@
+From: Claude <noreply@anthropic.com>
+Date: Mon, 20 Oct 2025 09:30:00 +0000
+Subject: [PATCH 1/2] Fix Chonkie tokenizer loading from HuggingFace cache
+
+This patch fixes the issue where Chonkie was falling back to character-based
+chunking instead of using the proper tokenizer from HuggingFace cache.
+
+Problem:
+- Chonkie couldn't load tokenizers from cache due to HF_ENDPOINT env var
+- Default tokenizer "gpt2" was not available in cache
+- Tokenizer string was passed to Chonkie instead of pre-loaded object
+
+Solution:
+- Load tokenizer explicitly from cache with HF_ENDPOINT workaround
+- Change default tokenizer to sentence-transformers/all-mpnet-base-v2
+- Pass loaded tokenizer object (not string) to Chonkie
+
+Changes:
+- src/memos/chunkers/sentence_chunker.py: Add cache loading logic
+- src/memos/configs/chunker.py: Update default tokenizer
+- src/memos/api/config.py: Update 3 hardcoded tokenizer references
+- src/memos/mem_os/utils/default_config.py: Update 1 hardcoded reference
+
+Tested:
+- Tokenizer loads successfully: MPNetTokenizerFast
+- Proper token-based chunking (not character-based)
+- API starts and runs without errors
+
+---
+diff --git a/src/memos/api/config.py b/src/memos/api/config.py
+index 355ee03..001bbfe 100644
+--- a/src/memos/api/config.py
++++ b/src/memos/api/config.py
+@@ -171,7 +171,7 @@ class APIConfig:
+                         "chunker": {
+                             "backend": "sentence",
+                             "config": {
+-                                "tokenizer_or_token_counter": "gpt2",
++                                "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
+                                 "chunk_size": 512,
+                                 "chunk_overlap": 128,
+                                 "min_sentences_per_chunk": 1,
+@@ -359,7 +359,7 @@ class APIConfig:
+                     "chunker": {
+                         "backend": "sentence",
+                         "config": {
+-                            "tokenizer_or_token_counter": "gpt2",
++                            "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
+                             "chunk_size": 512,
+                             "chunk_overlap": 128,
+                             "min_sentences_per_chunk": 1,
+@@ -455,7 +455,7 @@ class APIConfig:
+                     "chunker": {
+                         "backend": "sentence",
+                         "config": {
+-                            "tokenizer_or_token_counter": "gpt2",
++                            "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
+                             "chunk_size": 512,
+                             "chunk_overlap": 128,
+                             "min_sentences_per_chunk": 1,
+diff --git a/src/memos/chunkers/sentence_chunker.py b/src/memos/chunkers/sentence_chunker.py
+index 4de0cf3..55be0ce 100644
+--- a/src/memos/chunkers/sentence_chunker.py
++++ b/src/memos/chunkers/sentence_chunker.py
+@@ -20,8 +20,33 @@ class SentenceChunker(BaseChunker):
+         from chonkie import SentenceChunker as ChonkieSentenceChunker
+
+         self.config = config
++
++        # If tokenizer_or_token_counter is a string (model name), try to load it from cache first
++        tokenizer = config.tokenizer_or_token_counter
++        if isinstance(tokenizer, str):
++            try:
++                import os
++                from transformers import AutoTokenizer
++
++                # Temporarily unset HF_ENDPOINT to prevent connection attempts
++                original_hf_endpoint = os.environ.get('HF_ENDPOINT')
++                if original_hf_endpoint:
++                    os.environ.pop('HF_ENDPOINT', None)
++
++                try:
++                    logger.info(f"Loading tokenizer '{tokenizer}' from local cache...")
++                    tokenizer = AutoTokenizer.from_pretrained(tokenizer, local_files_only=True)
++                    logger.info(f"Successfully loaded tokenizer from cache: {type(tokenizer).__name__}")
++                finally:
++                    # Restore HF_ENDPOINT
++                    if original_hf_endpoint:
++                        os.environ['HF_ENDPOINT'] = original_hf_endpoint
++            except Exception as e:
++                logger.warning(f"Failed to load tokenizer from cache: {e}. Will pass string to Chonkie.")
++                tokenizer = config.tokenizer_or_token_counter
++
+         self.chunker = ChonkieSentenceChunker(
+-            tokenizer_or_token_counter=config.tokenizer_or_token_counter,
++            tokenizer_or_token_counter=tokenizer,
+             chunk_size=config.chunk_size,
+             chunk_overlap=config.chunk_overlap,
+             min_sentences_per_chunk=config.min_sentences_per_chunk,
+diff --git a/src/memos/configs/chunker.py b/src/memos/configs/chunker.py
+index cb4f0e0..876e55e 100644
+--- a/src/memos/configs/chunker.py
++++ b/src/memos/configs/chunker.py
+@@ -9,7 +9,7 @@ class BaseChunkerConfig(BaseConfig):
+     """Base configuration class for chunkers."""
+
+     tokenizer_or_token_counter: str = Field(
+-        default="gpt2", description="Tokenizer model name or a token counting function"
++        default="sentence-transformers/all-mpnet-base-v2", description="Tokenizer model name or a token counting function"
+     )
+     chunk_size: int = Field(default=512, description="Maximum tokens per chunk")
+     chunk_overlap: int = Field(default=128, description="Overlap between chunks")
+diff --git a/src/memos/mem_os/utils/default_config.py b/src/memos/mem_os/utils/default_config.py
+index 967654d..c5e9641 100644
+--- a/src/memos/mem_os/utils/default_config.py
++++ b/src/memos/mem_os/utils/default_config.py
+@@ -82,7 +82,7 @@ def get_default_config(
+                 "chunker": {
+                     "backend": "sentence",
+                     "config": {
+-                        "tokenizer_or_token_counter": "gpt2",
++                        "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
+                         "chunk_size": kwargs.get("chunk_size", 512),
+                         "chunk_overlap": kwargs.get("chunk_overlap", 128),
+                         "min_sentences_per_chunk": 1,
+--
+2.40.0

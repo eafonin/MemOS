@@ -1,8 +1,31 @@
 # MemOS home
 .memos/
 
+# Claude Code and IDE files
+.claude/
+.code/
+*-summary.md
+DOCS.md
+
+# Debug agents and utilities
+debug-agents/
+
+# Processed documentation
+docs/processed/
+/docs/processed
+
 # Docker development environment
 docker-dev/
+
+# Docker test1 environment - ignore runtime data, keep rebuild files
+docker-test1/data/
+docker-test1/logs/
+docker-test1/*_SUMMARY.md
+docker-test1/*_TROUBLESHOOTING.md
+docker-test1/CONFIG_REFERENCE.md
+docker-test1/FEATURE_FLAGS_REFERENCE.md
+docker-test1/NETWORK_TROUBLESHOOTING.md
+docker-test1/.env
 
 # Temporary files
 tmp/
@@ -18,6 +41,18 @@ evaluation/.env
 !evaluation/configs-example/*.json
 evaluation/configs/*
 **tree_textual_memory_locomo**
+
+# memos-data-loader - ignore source data and generated docs, keep loader code
+memos-data-loader/loadDataSource/
+memos-data-loader/docs/processed/
+memos-data-loader/*_SUMMARY.md
+memos-data-loader/*_GUIDE.md
+memos-data-loader/*_TESTS.md
+memos-data-loader/PLAN*.md
+memos-data-loader/*_CREDENTIALS.md
+memos-data-loader/.env.docker-test1
+memos-data-loader/.env.remote-backup
+memos-data-loader/*.png
 .env
 evaluation/scripts/personamem
 
@@ -182,6 +217,9 @@ venv.bak/
 # but do not ignore docs/openapi.json
 !docs/openapi.json
 
+# but do not ignore docker-test1 essential files
+!docker-test1/requirements.txt
+!docker-test1/constraints.txt
 
 # mypy
 .mypy_cache/

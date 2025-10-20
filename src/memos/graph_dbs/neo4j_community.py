@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from memos.configs.graph_db import Neo4jGraphDBConfig
@@ -8,6 +9,49 @@ from memos.vec_dbs.item import VecDBItem
 
 
 logger = get_logger(__name__)
+
+
+def _serialize_complex_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    """
+    Serialize complex objects in metadata to JSON strings for Neo4j storage.
+
+    Neo4j only accepts primitive types (str, int, float, bool) or arrays of primitives
+    as property values. This function converts complex objects (dicts, lists of dicts)
+    to JSON strings.
+
+    Args:
+        metadata: Dictionary that may contain complex nested objects
+
+    Returns:
+        Dictionary with complex objects serialized to JSON strings
+    """
+    serialized = {}
+    for key, value in metadata.items():
+        if value is None:
+            serialized[key] = value
+        elif isinstance(value, (str, int, float, bool)):
+            # Primitive types - store as-is
+            serialized[key] = value
+        elif isinstance(value, list):
+            # Check if it's a list of primitives or complex objects
+            if value and isinstance(value[0], (dict, list)):
+                # List of complex objects - serialize to JSON
+                serialized[key] = json.dumps(value)
+            else:
+                # List of primitives - store as-is
+                serialized[key] = value
+        elif isinstance(value, dict):
+            # Dictionary - serialize to JSON
+            serialized[key] = json.dumps(value)
+        else:
+            # Unknown type - serialize to JSON for safety
+            try:
+                serialized[key] = json.dumps(value)
+            except (TypeError, ValueError):
+                logger.warning(f"Could not serialize field '{key}' of type {type(value)}, converting to string")
+                serialized[key] = str(value)
+
+    return serialized
 
 
 class Neo4jCommunityGraphDB(Neo4jGraphDB):
@@ -76,6 +120,10 @@ class Neo4jCommunityGraphDB(Neo4jGraphDB):
             vector_sync_status = "failed"
 
         metadata["vector_sync"] = vector_sync_status
+
+        # Serialize complex objects to JSON strings for Neo4j compatibility
+        neo4j_metadata = _serialize_complex_metadata(metadata)
+
         query = """
             MERGE (n:Memory {id: $id})
             SET n.memory = $memory,
@@ -90,7 +138,7 @@ class Neo4jCommunityGraphDB(Neo4jGraphDB):
                 memory=memory,
                 created_at=created_at,
                 updated_at=updated_at,
-                metadata=metadata,
+                metadata=neo4j_metadata,
             )
 
     def get_children_with_embeddings(self, id: str) -> list[dict[str, Any]]:
@@ -298,6 +346,17 @@ class Neo4jCommunityGraphDB(Neo4jGraphDB):
             if time_field in node and hasattr(node[time_field], "isoformat"):
                 node[time_field] = node[time_field].isoformat()
         node.pop("user_name", None)
+
+        # Deserialize JSON strings back to complex objects
+        for key, value in node.items():
+            if isinstance(value, str):
+                # Try to deserialize if it looks like JSON
+                if value.startswith(('[', '{')):
+                    try:
+                        node[key] = json.loads(value)
+                    except (json.JSONDecodeError, ValueError):
+                        # Not valid JSON, keep as string
+                        pass
 
         new_node = {"id": node.pop("id"), "memory": node.pop("memory", ""), "metadata": node}
         try:

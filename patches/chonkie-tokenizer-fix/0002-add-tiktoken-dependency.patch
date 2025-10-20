@@ -1,0 +1,33 @@
+From: Claude <noreply@anthropic.com>
+Date: Mon, 20 Oct 2025 09:30:00 +0000
+Subject: [PATCH 2/2] Add tiktoken dependency for Chonkie fallback
+
+This patch adds the missing tiktoken package which is required by Chonkie
+as a fallback tokenizer when transformers tokenizers are unavailable.
+
+Problem:
+- Chonkie requires one of: transformers, tokenizers, or tiktoken
+- tiktoken was missing from requirements, causing initialization failure
+- Error: "ValueError: Tokenizer not found in transformers, tokenizers, or tiktoken"
+
+Solution:
+- Add tiktoken==0.8.0 to requirements.txt
+
+Note: This is the minimal dependency addition. The main fix is in patch 0001
+which ensures transformers tokenizer is loaded from cache, but tiktoken
+provides a safety fallback.
+
+---
+diff --git a/docker/requirements.txt b/docker/requirements.txt
+index 1234567..89abcdef 100644
+--- a/docker/requirements.txt
++++ b/docker/requirements.txt
+@@ -145,6 +145,7 @@ sympy==1.14.0
+ tenacity==9.1.2
+ threadpoolctl==3.6.0
++tiktoken==0.8.0
+ tokenizers==0.21.2
+ # Torch excluded for lighter Docker images (very large package ~2GB)
+ # If needed for ML/AI features, uncomment:
+--
+2.40.0

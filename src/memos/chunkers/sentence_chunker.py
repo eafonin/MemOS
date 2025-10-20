@@ -20,8 +20,33 @@ class SentenceChunker(BaseChunker):
         from chonkie import SentenceChunker as ChonkieSentenceChunker
 
         self.config = config
+
+        # If tokenizer_or_token_counter is a string (model name), try to load it from cache first
+        tokenizer = config.tokenizer_or_token_counter
+        if isinstance(tokenizer, str):
+            try:
+                import os
+                from transformers import AutoTokenizer
+
+                # Temporarily unset HF_ENDPOINT to prevent connection attempts
+                original_hf_endpoint = os.environ.get('HF_ENDPOINT')
+                if original_hf_endpoint:
+                    os.environ.pop('HF_ENDPOINT', None)
+
+                try:
+                    logger.info(f"Loading tokenizer '{tokenizer}' from local cache...")
+                    tokenizer = AutoTokenizer.from_pretrained(tokenizer, local_files_only=True)
+                    logger.info(f"Successfully loaded tokenizer from cache: {type(tokenizer).__name__}")
+                finally:
+                    # Restore HF_ENDPOINT
+                    if original_hf_endpoint:
+                        os.environ['HF_ENDPOINT'] = original_hf_endpoint
+            except Exception as e:
+                logger.warning(f"Failed to load tokenizer from cache: {e}. Will pass string to Chonkie.")
+                tokenizer = config.tokenizer_or_token_counter
+
         self.chunker = ChonkieSentenceChunker(
-            tokenizer_or_token_counter=config.tokenizer_or_token_counter,
+            tokenizer_or_token_counter=tokenizer,
             chunk_size=config.chunk_size,
             chunk_overlap=config.chunk_overlap,
             min_sentences_per_chunk=config.min_sentences_per_chunk,
