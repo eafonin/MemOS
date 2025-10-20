@@ -7,8 +7,9 @@
 *-summary.md
 DOCS.md
 
-# Debug agents and utilities
-debug-agents/
+# Debug agents - ignore venvs but keep agent code
+debug-agents/*/venv/
+debug-agents/*/__pycache__/
 
 # Processed documentation
 docs/processed/
