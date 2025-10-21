@@ -154,20 +154,74 @@ class MOSProduct(MOSCore):
         # Note: self.user_manager is now the persistent user manager from parent class
         # No need for separate global_user_manager as they are the same instance
 
-        # Initialize tiktoken for streaming
-        try:
-            # Use gpt2 encoding which is more stable and widely compatible
-            self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
-            logger.info("tokenizer initialized successfully for streaming")
-        except Exception as e:
-            logger.warning(
-                f"Failed to initialize tokenizer, will use character-based chunking: {e}"
-            )
-            self.tokenizer = None
+        # Initialize tokenizer for streaming with configurable model
+        self.tokenizer = self._initialize_streaming_tokenizer()
 
         # Restore user instances from persistent storage
         self._restore_user_instances(default_cube_config=default_cube_config)
         logger.info(f"User instances restored successfully, now user is {self.mem_cubes.keys()}")
+
+    def _detect_tokenizer_for_model(self, model_name: str) -> str:
+        """Detect appropriate tokenizer based on chat model name.
+
+        Args:
+            model_name: The LLM model name (e.g., from MOS_CHAT_MODEL)
+
+        Returns:
+            HuggingFace tokenizer model path
+        """
+        model_lower = model_name.lower()
+
+        # Qwen family models
+        if "qwen" in model_lower:
+            return "Qwen/Qwen3-0.6B"
+
+        # Claude, GPT, OpenAI models - use GPT-2 tokenizer (widely compatible)
+        if any(x in model_lower for x in ["claude", "gpt", "openai", "chatgpt"]):
+            return "gpt2"
+
+        # General fallback
+        return "bert-base-uncased"
+
+    def _initialize_streaming_tokenizer(self):
+        """Initialize tokenizer for streaming responses with configurable model.
+
+        Returns:
+            AutoTokenizer instance or None if initialization fails
+        """
+        try:
+            # Get tokenizer configuration from environment
+            tokenizer_config = os.getenv("MOS_STREAMING_TOKENIZER", "auto")
+
+            # Auto-detect based on chat model if set to "auto"
+            if tokenizer_config == "auto":
+                chat_model = os.getenv("MOS_CHAT_MODEL", "")
+                tokenizer_name = self._detect_tokenizer_for_model(chat_model)
+                logger.info(f"Auto-detected tokenizer '{tokenizer_name}' for model '{chat_model}'")
+            else:
+                tokenizer_name = tokenizer_config
+                logger.info(f"Using configured tokenizer: {tokenizer_name}")
+
+            # Temporarily unset HF_ENDPOINT to prevent connection attempts
+            original_hf_endpoint = os.environ.get('HF_ENDPOINT')
+            if original_hf_endpoint:
+                os.environ.pop('HF_ENDPOINT', None)
+
+            try:
+                # Try to load from cache (for offline mode compatibility)
+                tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, local_files_only=True)
+                logger.info(f"Successfully loaded tokenizer '{tokenizer_name}' from cache for streaming")
+                return tokenizer
+            finally:
+                # Restore HF_ENDPOINT
+                if original_hf_endpoint:
+                    os.environ['HF_ENDPOINT'] = original_hf_endpoint
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to initialize tokenizer, will use character-based chunking: {e}"
+            )
+            return None
 
     def _restore_user_instances(
         self, default_cube_config: GeneralMemCubeConfig | None = None
