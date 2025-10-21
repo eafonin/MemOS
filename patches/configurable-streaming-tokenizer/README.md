@@ -532,6 +532,7 @@ Chat Response (Full Text)
 
 ## See Also
 
+- **[Auto-Detection Logic](AUTO_DETECTION_LOGIC.md)** - Deep dive into how tokenizer selection works
 - [Chonkie Tokenizer Fix Patch](../chonkie-tokenizer-fix/README.md) - For document chunking tokenizer
 - [Neo4j Complex Object Serialization Fix](../neo4j-complex-object-serialization/README.md)
 - [MemOS Documentation](https://github.com/MemOS-ai/MemOS)
