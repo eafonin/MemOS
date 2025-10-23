@@ -359,9 +359,9 @@ class APIConfig:
                     "chunker": {
                         "backend": "sentence",
                         "config": {
-                            "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
-                            "chunk_size": 512,
-                            "chunk_overlap": 128,
+                            "tokenizer_or_token_counter": "bert-base-uncased",
+                            "chunk_size": 480,
+                            "chunk_overlap": 120,
                             "min_sentences_per_chunk": 1,
                         },
                     },
@@ -455,9 +455,9 @@ class APIConfig:
                     "chunker": {
                         "backend": "sentence",
                         "config": {
-                            "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
-                            "chunk_size": 512,
-                            "chunk_overlap": 128,
+                            "tokenizer_or_token_counter": "bert-base-uncased",
+                            "chunk_size": 480,
+                            "chunk_overlap": 120,
                             "min_sentences_per_chunk": 1,
                         },
                     },

@@ -9,10 +9,10 @@ class BaseChunkerConfig(BaseConfig):
     """Base configuration class for chunkers."""
 
     tokenizer_or_token_counter: str = Field(
-        default="sentence-transformers/all-mpnet-base-v2", description="Tokenizer model name or a token counting function"
+        default="BAAI/bge-large-en-v1.5", description="Tokenizer model name or a token counting function"
     )
-    chunk_size: int = Field(default=512, description="Maximum tokens per chunk")
-    chunk_overlap: int = Field(default=128, description="Overlap between chunks")
+    chunk_size: int = Field(default=480, description="Maximum tokens per chunk (BGE-Large limit: 512)")
+    chunk_overlap: int = Field(default=120, description="Overlap between chunks")
     min_sentences_per_chunk: int = Field(default=1, description="Minimum sentences in each chunk")
 
 

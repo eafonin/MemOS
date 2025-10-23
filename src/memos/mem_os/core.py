@@ -23,7 +23,7 @@ from memos.mem_scheduler.schemas.message_schemas import ScheduleMessageItem
 from memos.mem_user.user_manager import UserManager, UserRole
 from memos.memories.activation.item import ActivationMemoryItem
 from memos.memories.parametric.item import ParametricMemoryItem
-from memos.memories.textual.item import TextualMemoryItem, TextualMemoryMetadata
+from memos.memories.textual.item import TextualMemoryItem, TextualMemoryMetadata, TreeNodeTextualMemoryMetadata
 from memos.memos_tools.thread_safe_dict_segment import OptimizedThreadSafeDict
 from memos.templates.mos_prompts import QUERY_REWRITING_PROMPT
 from memos.types import ChatHistory, MessageList, MOSSearchResult
@@ -751,20 +751,38 @@ class MOSCore:
                     [TextualMemoryItem(memory=memory_content, metadata=metadata)]
                 )
             else:
-                messages_list = [
-                    [{"role": "user", "content": memory_content}]
-                ]  # for only user-str input and convert message
-                memories = self.mem_reader.get_memory(
-                    messages_list,
-                    type="chat",
-                    info={"user_id": target_user_id, "session_id": target_session_id},
-                )
+                # Chunk the memory_content before adding to enable proper embedding
+                # Use mem_reader's chunker to split large texts
+                chunks = self.mem_reader.chunker.chunk(memory_content)
+
+                memories = []
+                for chunk in chunks:
+                    # Create TextualMemoryItem for each chunk with embedding
+                    embedding = self.mem_reader.embedder.embed([chunk.text])[0]
+
+                    memory_item = TextualMemoryItem(
+                        memory=chunk.text,
+                        metadata=TreeNodeTextualMemoryMetadata(
+                            user_id=target_user_id,
+                            session_id=target_session_id,
+                            memory_type="UserMemory",
+                            status="activated",
+                            tags=[],
+                            key=chunk.text[:50],  # First 50 chars as key
+                            embedding=embedding,
+                            usage=[],
+                            sources=[],
+                            background="",
+                            confidence=0.99,
+                        )
+                    )
+                    memories.append(memory_item)
 
                 mem_ids = []
                 for mem in memories:
-                    mem_id_list: list[str] = self.mem_cubes[mem_cube_id].text_mem.add(mem)
+                    mem_id_list: list[str] = self.mem_cubes[mem_cube_id].text_mem.add([mem])
                     logger.info(
-                        f"Added memory user {target_user_id} to memcube {mem_cube_id}: {mem_id_list}"
+                        f"Added chunked memory for user {target_user_id} to memcube {mem_cube_id}: {mem_id_list}"
                     )
                     mem_ids.extend(mem_id_list)
 
