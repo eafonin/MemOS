@@ -88,6 +88,56 @@ bash patches/bge-large-embeddings-512-tokens/TEST.sh test1-memos-api
 
 ---
 
+### centralized-chunker-config/
+
+**Status:** ✅ Tested and verified
+**Date:** 2025-10-23
+**Priority:** 🟡 Medium (Configuration cleanup)
+**Type:** Refactor + Enhancement
+
+**Summary:**
+Centralizes chunker configuration into a single helper function with ENV variable support, fixing configuration inconsistencies across 3 locations in the codebase.
+
+**Impact:**
+- **Fixes inconsistency** - 3 hardcoded configs unified to 1
+- **Adds ENV support** - 5 configurable environment variables
+- **Reduces code** - -39 lines of duplicated config
+- **Improves maintainability** - Single source of truth
+- **Better documentation** - Comprehensive .env comments
+
+**Root Cause:**
+Chunker configuration was hardcoded in 3 different locations with inconsistent values (line 174: 512 tokens, lines 363/459: 480 tokens). No way to customize without code changes.
+
+**Files Modified:** 2 files (config.py, .env)
+**Lines Changed:** +30, -39 (net: -9 code, +42 documentation)
+
+**Quick Apply:**
+```bash
+cd /home/memos/Development/MemOS
+bash patches/centralized-chunker-config/APPLY.sh
+# Rebuild: cd docker-test1 && docker-compose build --no-cache memos-api
+```
+
+**Documentation:** See `patches/centralized-chunker-config/README.md`
+
+**Test Verification:**
+```bash
+bash patches/centralized-chunker-config/TEST.sh test1-memos-api
+```
+
+**Dependencies:** None (standalone patch)
+
+**Environment Variables:**
+- `MOS_CHUNKER_BACKEND` (default: "sentence")
+- `MOS_CHUNKER_TOKENIZER` (default: "bert-base-uncased")
+- `MOS_CHUNK_SIZE` (default: 480)
+- `MOS_CHUNK_OVERLAP` (default: 120)
+- `MOS_MIN_SENTENCES_PER_CHUNK` (default: 1)
+
+**Note:** Defaults are optimized for BAAI/bge-large-en-v1.5 (512 token limit). No .env changes needed unless customization required.
+
+---
+
 ### chonkie-tokenizer-fix/
 
 **Status:** ✅ Tested and verified
@@ -262,5 +312,5 @@ If you create a patch that fixes an issue:
 
 ---
 
-**Last Updated:** 2025-10-21
+**Last Updated:** 2025-10-23
 **Maintainer:** Development Team

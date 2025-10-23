@@ -91,6 +91,38 @@ class APIConfig:
         }
 
     @staticmethod
+    def get_chunker_config() -> dict[str, Any]:
+        """Get chunker configuration from ENV or defaults.
+
+        Defaults optimized for BAAI/bge-large-en-v1.5 (512 token limit):
+        - chunk_size=480 (stays under 512 with safety margin)
+        - tokenizer=bert-base-uncased (chonkie compatible, not bge-large)
+        - chunk_overlap=120 (25% overlap for context preservation)
+
+        Why bert-base-uncased when embedding model is bge-large?
+        - Chonkie doesn't support bge-large tokenizer
+        - bert-base-uncased is widely compatible
+        - Token count mismatch (~25% inflation) is accounted for via chunk_size=480
+        - Result: bert counts ~480 tokens, bge sees ~525-600, stays under 512 limit
+
+        Environment Variables:
+        - MOS_CHUNKER_BACKEND: Chunking backend (default: "sentence")
+        - MOS_CHUNKER_TOKENIZER: Tokenizer for chunking (default: "bert-base-uncased")
+        - MOS_CHUNK_SIZE: Max tokens per chunk (default: 480)
+        - MOS_CHUNK_OVERLAP: Overlap between chunks (default: 120)
+        - MOS_MIN_SENTENCES_PER_CHUNK: Min sentences per chunk (default: 1)
+        """
+        return {
+            "backend": os.getenv("MOS_CHUNKER_BACKEND", "sentence"),
+            "config": {
+                "tokenizer_or_token_counter": os.getenv("MOS_CHUNKER_TOKENIZER", "bert-base-uncased"),
+                "chunk_size": int(os.getenv("MOS_CHUNK_SIZE", "480")),
+                "chunk_overlap": int(os.getenv("MOS_CHUNK_OVERLAP", "120")),
+                "min_sentences_per_chunk": int(os.getenv("MOS_MIN_SENTENCES_PER_CHUNK", "1")),
+            },
+        }
+
+    @staticmethod
     def get_reranker_config() -> dict[str, Any]:
         """Get embedder configuration."""
         embedder_backend = os.getenv("MOS_RERANKER_BACKEND", "http_bge")
@@ -168,15 +200,7 @@ class APIConfig:
                             },
                         },
                         "embedder": APIConfig.get_embedder_config(),
-                        "chunker": {
-                            "backend": "sentence",
-                            "config": {
-                                "tokenizer_or_token_counter": "sentence-transformers/all-mpnet-base-v2",
-                                "chunk_size": 512,
-                                "chunk_overlap": 128,
-                                "min_sentences_per_chunk": 1,
-                            },
-                        },
+                        "chunker": APIConfig.get_chunker_config(),
                     },
                 },
             },
@@ -356,15 +380,7 @@ class APIConfig:
                         "config": openai_config,
                     },
                     "embedder": APIConfig.get_embedder_config(),
-                    "chunker": {
-                        "backend": "sentence",
-                        "config": {
-                            "tokenizer_or_token_counter": "bert-base-uncased",
-                            "chunk_size": 480,
-                            "chunk_overlap": 120,
-                            "min_sentences_per_chunk": 1,
-                        },
-                    },
+                    "chunker": APIConfig.get_chunker_config(),
                 },
             },
             "enable_textual_memory": True,
@@ -452,15 +468,7 @@ class APIConfig:
                         "config": openai_config,
                     },
                     "embedder": APIConfig.get_embedder_config(),
-                    "chunker": {
-                        "backend": "sentence",
-                        "config": {
-                            "tokenizer_or_token_counter": "bert-base-uncased",
-                            "chunk_size": 480,
-                            "chunk_overlap": 120,
-                            "min_sentences_per_chunk": 1,
-                        },
-                    },
+                    "chunker": APIConfig.get_chunker_config(),
                 },
             },
             "enable_textual_memory": True,
