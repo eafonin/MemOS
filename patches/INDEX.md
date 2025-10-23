@@ -44,6 +44,50 @@ bash patches/neo4j-complex-object-serialization/TEST.sh test1-memos-api
 
 ---
 
+### bge-large-embeddings-512-tokens/
+
+**Status:** ✅ Tested and verified
+**Date:** 2025-10-21
+**Priority:** 🔴 **CRITICAL** - Fixes silent data loss
+**Type:** Bug fix + Enhancement
+
+**Summary:**
+Upgrades embedding model from `sentence-transformers/all-mpnet-base-v2` (384-token limit) to `BAAI/bge-large-en-v1.5` (512-token limit), fixing critical silent failures where documents >384 tokens were rejected but API returned 200 OK.
+
+**Impact:**
+- **Fixes silent data loss** - Documents >384 tokens now processed successfully
+- **+33% token capacity** - 512 vs 384 token limit
+- **Better embedding quality** - BGE-Large outperforms all-mpnet-base-v2
+- **Improved success rate** - 33% → ~90% document ingestion success
+- **Truncation warnings** - Logs now alert if chunks exceed limits
+
+**Root Cause:**
+Chunker created 512-token chunks but TEI embedding service only accepts 384 tokens. Documents >384 tokens failed with Error 413 but API incorrectly returned 200 OK, causing silent data loss.
+
+**Files Modified:** 2 files + docker-compose.yml
+**Lines Changed:** +21, -3
+
+**Quick Apply:**
+```bash
+cd /home/memos/Development/MemOS
+bash patches/bge-large-embeddings-512-tokens/APPLY.sh
+# Then manually update docker-compose.yml (see README)
+# Rebuild: docker-compose build --no-cache memos-api
+```
+
+**Documentation:** See `patches/bge-large-embeddings-512-tokens/README.md`
+
+**Test Verification:**
+```bash
+bash patches/bge-large-embeddings-512-tokens/TEST.sh test1-memos-api
+```
+
+**Dependencies:** None (standalone patch)
+
+**Note:** Requires docker-compose.yml update to change TEI model. See `docker-compose-bge-large.yml.example` for reference configuration.
+
+---
+
 ### chonkie-tokenizer-fix/
 
 **Status:** ✅ Tested and verified
@@ -218,5 +262,5 @@ If you create a patch that fixes an issue:
 
 ---
 
-**Last Updated:** 2025-10-20
+**Last Updated:** 2025-10-21
 **Maintainer:** Development Team

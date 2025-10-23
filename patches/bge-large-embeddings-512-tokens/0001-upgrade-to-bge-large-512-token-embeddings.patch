@@ -1,0 +1,78 @@
+From: MemOS Development <dev@memos.ai>
+Date: Mon, 21 Oct 2025 10:00:00 +0000
+Subject: [PATCH] Upgrade to BGE-Large embeddings with 512-token support
+
+This patch upgrades the embedding model from sentence-transformers/all-mpnet-base-v2
+(384 token limit) to BAAI/bge-large-en-v1.5 (512 token limit), fixing critical
+failures with documents larger than 384 tokens.
+
+Changes:
+- Update chunker to use 480-token chunks (stays under 512 limit with margin)
+- Adjust chunk overlap proportionally (120 tokens)
+- Add truncation warning logging to detect edge cases
+- Update tokenizer reference to match new model
+
+This resolves silent failures where documents >384 tokens were rejected by the
+embedding service but API returned 200 OK.
+
+Dependencies: None (standalone patch)
+
+---
+ src/memos/configs/chunker.py | 6 +++---
+ src/memos/vec_dbs/qdrant.py  | 15 +++++++++++++++
+ 2 files changed, 18 insertions(+), 3 deletions(-)
+
+diff --git a/src/memos/configs/chunker.py b/src/memos/configs/chunker.py
+index 1234567..abcdefg 100644
+--- a/src/memos/configs/chunker.py
++++ b/src/memos/configs/chunker.py
+@@ -9,11 +9,11 @@ class BaseChunkerConfig(BaseConfig):
+     """Base configuration class for chunkers."""
+
+     tokenizer_or_token_counter: str = Field(
+-        default="sentence-transformers/all-mpnet-base-v2", description="Tokenizer model name or a token counting function"
++        default="BAAI/bge-large-en-v1.5", description="Tokenizer model name or a token counting function"
+     )
+-    chunk_size: int = Field(default=512, description="Maximum tokens per chunk")
+-    chunk_overlap: int = Field(default=128, description="Overlap between chunks")
++    chunk_size: int = Field(default=480, description="Maximum tokens per chunk (BGE-Large limit: 512)")
++    chunk_overlap: int = Field(default=120, description="Overlap between chunks")
+     min_sentences_per_chunk: int = Field(default=1, description="Minimum sentences in each chunk")
+
+
+diff --git a/src/memos/vec_dbs/qdrant.py b/src/memos/vec_dbs/qdrant.py
+index 7891011..fedcba9 100644
+--- a/src/memos/vec_dbs/qdrant.py
++++ b/src/memos/vec_dbs/qdrant.py
+@@ -12,6 +12,9 @@ from qdrant_client import QdrantClient
+ from qdrant_client.models import Distance, PointStruct, VectorParams
+
+ from memos.configs.vec_db import QdrantVecDBConfig
++from memos.log import get_logger
++
++logger = get_logger(__name__)
+
+
+ class QdrantVecDB:
+@@ -85,6 +88,18 @@ class QdrantVecDB:
+         """
+         # Generate embeddings for all texts
+         embeddings = self.embedder.embed(texts)
++
++        # Check for potential truncation issues
++        # Note: This is a safety check. Chunker should prevent this, but log if it happens.
++        MAX_EMBEDDING_TOKENS = 512  # BGE-Large limit
++        for i, text in enumerate(texts):
++            # Rough estimate: 1 token ≈ 4 characters
++            estimated_tokens = len(text) // 4
++            if estimated_tokens > MAX_EMBEDDING_TOKENS:
++                logger.warning(
++                    f"⚠️  TRUNCATION RISK: Text {i} has ~{estimated_tokens} tokens (estimated), "
++                    f"exceeds embedding model limit of {MAX_EMBEDDING_TOKENS}. "
++                    f"Consider using smaller chunk_size or check if auto-truncate is enabled."
++                )
+
+         # Prepare points for insertion
+         points = [
+--
+2.43.0

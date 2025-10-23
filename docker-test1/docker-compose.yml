@@ -1,7 +1,6 @@
-version: '3.8'
-
 services:
   # Text Embeddings Inference Service (Local CPU Embeddings)
+  # BGE-Large model with 512-token support (upgraded from all-mpnet-base-v2 384-token limit)
   tei:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8.1
     container_name: test1-tei
@@ -10,10 +9,10 @@ services:
     volumes:
       - ./data/hf-cache:/data
     environment:
-      - MODEL_ID=sentence-transformers/all-mpnet-base-v2
+      - MODEL_ID=BAAI/bge-large-en-v1.5
       - REVISION=main
       - HF_HUB_ENABLE_HF_TRANSFER=1
-    command: --model-id sentence-transformers/all-mpnet-base-v2 --port 80
+    command: --model-id BAAI/bge-large-en-v1.5 --port 80 --auto-truncate
     networks:
       - test1_network
     restart: unless-stopped
