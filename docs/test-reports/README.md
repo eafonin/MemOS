@@ -50,6 +50,24 @@ This folder contains comprehensive testing and analysis documentation for MemOS.
 
 ---
 
+### [SEMANTIC_SEARCH_ARCHITECTURE.md](./SEMANTIC_SEARCH_ARCHITECTURE.md)
+**Complete semantic search architecture analysis**
+
+- Complete data flow: Document → Chunking → Embedding → Storage → Indexing → Retrieval
+- Chunking implementation (Chonkie + bert-base-uncased, 480 tokens, sentence-based)
+- Embedding generation (TEI service + BAAI/bge-large-en-v1.5, 1024 dimensions)
+- Neo4j native vector indexing (HNSW algorithm, cosine similarity)
+- Vector storage & search mechanics (db.index.vector.queryNodes)
+- Performance analysis & scalability (O(log n) search complexity)
+- Why Neo4j instead of Qdrant for vector search
+- Code reference map with file locations
+- Design rationale for architecture decisions
+- Future enhancement opportunities
+
+**Key Insight:** Neo4j v5.11+ HNSW handles all vector search; Qdrant exists but not used in search path
+
+---
+
 ## 🧪 Test Artifacts
 
 Related test data and logs stored in `/tmp/`:
